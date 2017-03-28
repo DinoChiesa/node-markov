@@ -3,6 +3,11 @@ var deck = require('deck');
 var Lazy = require('lazy');
 var Hash = require('hashish');
 
+function randomEndOfSentence() {
+    var endOfSentence = ".!?";
+    return endOfSentence[Math.floor(Math.random() * endOfSentence.length)];
+}
+
 module.exports = function (order) {
     if (!order) order = 2;
     var db = {};
@@ -180,9 +185,12 @@ module.exports = function (order) {
         return res;
     };
 
+    var reEndOfSentence = new RegExp('[\.\!\?]$');
+
     self.respond = function (text, limit) {
         var cur = self.search(text) || self.pick();
-        return self.fill(cur, limit);
+        var line = self.fill(cur, limit);
+        return (line.match(re1))? line : line + randomEndOfSentence();
     };
 
     self.word = function (cur) {
