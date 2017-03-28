@@ -12,7 +12,6 @@ function randomEndOfSentence() {
 function maybeDowncase(txt) {
     var result = (["i", "i'll", "i'm", "i'd"].indexOf(txt.toLowerCase()) >= 0) ?
         capitalize(txt) : txt.toLowerCase();
-    console.log('MDC %s=>%s', txt, result);
     return result;
 }
 
