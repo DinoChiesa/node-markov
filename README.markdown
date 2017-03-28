@@ -120,4 +120,6 @@ generated if limit is specified.
 .respond(text, limit)
 ---------------------
 
-Search for a starting key in `text` and then call `.fill(key, limit)` on it.
+Search for a starting key in `text` and then call `.fill(key, limit)` on it,
+then join the resulting array by spaces and terminate with a sentence terminator.
+Return the resulting string. 

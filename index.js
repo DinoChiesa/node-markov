@@ -2,10 +2,22 @@ var EventEmitter = require('events').EventEmitter;
 var deck = require('deck');
 var Lazy = require('lazy');
 var Hash = require('hashish');
+var reCharactersToEliminate = new RegExp('[\\]\\[_\\*]+', 'g');
 
 function randomEndOfSentence() {
     var endOfSentence = ".!?";
     return endOfSentence[Math.floor(Math.random() * endOfSentence.length)];
+}
+
+function maybeDowncase(txt) {
+    var result = (["i", "i'll", "i'm", "i'd"].indexOf(txt.toLowerCase()) >= 0) ?
+        capitalize(txt) : txt.toLowerCase();
+    console.log('MDC %s=>%s', txt, result);
+    return result;
+}
+
+function capitalize(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
 module.exports = function (order) {
@@ -15,7 +27,11 @@ module.exports = function (order) {
 
     self.seed = function (seed, cb) {
         if (seed instanceof EventEmitter) {
-            Lazy(seed).lines.forEach(self.seed);
+            //Lazy(seed).lines.forEach(self.seed);
+            Lazy(seed).lines.forEach(function(line){
+                if (line && line.length>1)
+                    self.seed(line);
+            });
 
             if (cb) {
                 seed.on('error', cb);
@@ -24,9 +40,11 @@ module.exports = function (order) {
         }
         else {
             var text = (Buffer.isBuffer(seed) ? seed.toString() : seed);
-            var re1 = new RegExp('[][_\*]+', 'g');
             var words = text.split(/\s+/)
-                .map(function(item) { return item.replace(re1, ''); });
+                .map(function(item) {
+                    var output = item.replace(reCharactersToEliminate, '');
+                    return output;
+                });
 
             var links = [];
 
@@ -189,8 +207,12 @@ module.exports = function (order) {
 
     self.respond = function (text, limit) {
         var cur = self.search(text) || self.pick();
-        var line = self.fill(cur, limit);
-        return (line.match(re1))? line : line + randomEndOfSentence();
+        var line = self.fill(cur, limit)
+            .map(function(value, ix, ar){
+               return (ix === 0 || ar[ix - 1].match(reEndOfSentence)) ? capitalize(value) : maybeDowncase(value);
+            })
+            .join(' ');
+        return (line.match(reEndOfSentence)) ? line : line + randomEndOfSentence();
     };
 
     self.word = function (cur) {
