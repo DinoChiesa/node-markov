@@ -3,6 +3,7 @@ var deck = require('deck');
 var Lazy = require('lazy');
 var Hash = require('hashish');
 var reCharactersToEliminate = new RegExp('[\\]\\[_\\*]+', 'g');
+var reWhitespace = new RegExp("\\s+");
 
 function randomEndOfSentence() {
     var endOfSentence = ".!?";
@@ -16,7 +17,7 @@ function maybeDowncase(txt) {
 }
 
 function capitalize(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
+    return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
 }
 
 module.exports = function (order) {
@@ -39,9 +40,10 @@ module.exports = function (order) {
         }
         else {
             var text = (Buffer.isBuffer(seed) ? seed.toString() : seed);
-            var words = text.split(/\s+/)
+            var words = text.split(reWhitespace)
                 .map(function(item) {
                     var output = item.replace(reCharactersToEliminate, '');
+                    //console.log('C[%s]=> %s', item, output);
                     return output;
                 });
 
@@ -203,15 +205,34 @@ module.exports = function (order) {
     };
 
     var reEndOfSentence = new RegExp('[\.\!\?]$');
+    var rePunctuation = new RegExp('[-,;:]$');
 
     self.respond = function (text, limit) {
         var cur = self.search(text) || self.pick();
-        var line = self.fill(cur, limit)
+        var line = self.fill(cur, limit);
+        //console.log('fill: %s', JSON.stringify(line));
+        line = line
             .map(function(value, ix, ar){
-               return (ix === 0 || ar[ix - 1].match(reEndOfSentence)) ? capitalize(value) : maybeDowncase(value);
+                var pair = value.split(reWhitespace);
+                return (pair.length>1)?pair[1]:pair[0];
+            });
+
+        //return self.sentencify(line);
+        return line;
+    };
+
+    self.sentencify = function(a) {
+        a = a
+            .map(function(value, ix, ar){
+                var wantCaps = (ix === 0 || ar[ix - 1].match(reEndOfSentence));
+                //console.log('needCaps[%s] %s', value, wantCaps);
+                return (ix === 0 || ar[ix - 1].match(reEndOfSentence)) ? capitalize(value) : maybeDowncase(value);
             })
             .join(' ');
-        return (line.match(reEndOfSentence)) ? line : line + randomEndOfSentence();
+        while (a.match(rePunctuation)) {
+            a = a.slice(0, -1);
+        }
+        return (a.match(reEndOfSentence)) ? a : a + randomEndOfSentence();
     };
 
     self.word = function (cur) {
