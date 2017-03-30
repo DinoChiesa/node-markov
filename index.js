@@ -183,8 +183,8 @@ module.exports = function (order) {
 
     self.fill = function (cur, limit) {
         var dbcur = db[cur];
-        console.log('cur: ' + cur);
-        console.log('dbcur: ' + JSON.stringify(dbcur, null, 2));
+        //console.log('cur: ' + cur);
+        //console.log('dbcur: ' + JSON.stringify(dbcur, null, 2));
         var res = [ deck.pick(db[cur].words) ];
         if (!res[0]) return [];
         if (limit && res.length >= limit) return res;
@@ -193,7 +193,7 @@ module.exports = function (order) {
         var ncur = cur;
 
         while (pcur || ncur) {
-            console.log('res: ' + JSON.stringify(res));
+            //console.log('res: ' + JSON.stringify(res));
             if (pcur) {
                 var prev = self.prev(pcur);
                 pcur = null;
