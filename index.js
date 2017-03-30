@@ -1,9 +1,11 @@
-var EventEmitter = require('events').EventEmitter;
 var deck = require('deck');
-var Lazy = require('lazy');
 var Hash = require('hashish');
-var reCharactersToEliminate = new RegExp('[\\]\\[_\\*]+', 'g');
+var readParagraphs = require('./paragraphReader.js').readParagraphs;
+var reCharactersToEliminate = new RegExp('[\\]\\[_\\*"\\)\\()]+', 'g');
 var reWhitespace = new RegExp("\\s+");
+var reEndOfSentence = new RegExp('[\.\!\?]$');
+var rePunctuation = new RegExp('[-,;:]$');
+var reTrailingSlashes = new RegExp('-+$');
 
 function randomEndOfSentence() {
     var endOfSentence = ".!?";
@@ -20,37 +22,43 @@ function capitalize(string) {
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
 }
 
+function seemsToBeReadableStream(s) {
+    return (typeof s.on === 'function') &&
+        (typeof s.read === 'function');
+}
+
 module.exports = function (order) {
-    if (!order) order = 2;
+    if (!order) order = 1;
     var db = {};
     var self = {};
 
     self.seed = function (seed, cb) {
-        if (seed instanceof EventEmitter) {
-            //Lazy(seed).lines.forEach(self.seed);
-            Lazy(seed).lines.forEach(function(line){
-                if (line && line.length>1)
-                    self.seed(line);
+        if (seemsToBeReadableStream(seed)) {
+            readParagraphs(seed, function(paragraphs){
+                paragraphs.forEach(function(p){
+                    if (p && p.length>1)
+                        self.seed(p);
+                });
+                cb();
             });
-
-            if (cb) {
-                seed.on('error', cb);
-                seed.on('end', cb);
-            }
         }
         else {
+            var i, word, cword, next, cnext;
             var text = (Buffer.isBuffer(seed) ? seed.toString() : seed);
             var words = text.split(reWhitespace)
                 .map(function(item) {
-                    var output = item.replace(reCharactersToEliminate, '');
+                    var output = item
+                        .replace(reCharactersToEliminate, '')
+                        .replace(reTrailingSlashes, '');
                     //console.log('C[%s]=> %s', item, output);
                     return output;
                 });
 
             var links = [];
 
-            for (var i = 0; i < words.length; i += order) {
+            for (i = 0; i < words.length; i += order) {
                 var link = words.slice(i, i + order).join(' ');
+                //console.log('link[%s]: %s', words[i], JSON.stringify(link));
                 links.push(link);
             }
 
@@ -59,15 +67,16 @@ module.exports = function (order) {
                 return;
             }
 
-            for (var i = 1; i < links.length; i++) {
-                var word = links[i-1];
-                var cword = clean(word);
-                var next = links[i];
-                var cnext = clean(next);
+            for (i = 1; i < links.length; i++) {
+                word = links[i-1].toLowerCase();
+                cword = clean(word);
+                next = links[i];
+                cnext = clean(next);
 
-                var node = Hash.has(db, cword)
-                    ? db[cword]
-                    : {
+                //console.log('cword[%s] cnext[%s]', cword, cnext);
+
+                var node = Hash.has(db, cword) ?
+                    db[cword] : {
                         count : 0,
                         words : {},
                         next : {},
@@ -82,7 +91,7 @@ module.exports = function (order) {
                 ) + 1;
                 node.next[cnext] = (
                     Hash.has(node.next, cnext) ? node.next[cnext] : 0
-                ) + 1
+                ) + 1;
                 if (i > 1) {
                     var prev = clean(links[i-2]);
                     node.prev[prev] = (
@@ -105,6 +114,7 @@ module.exports = function (order) {
             n.prev[cword] = (Hash.has(n.prev, cword) ? n.prev[cword] : 0) + 1;
             n.next[''] = (n.next[''] || 0) + 1;
 
+            //console.log(JSON.stringify(db, null, 2));
             if (cb) cb(null);
         }
     };
@@ -124,7 +134,7 @@ module.exports = function (order) {
     };
 
     self.pick = function () {
-        return deck.pick(Object.keys(db))
+        return deck.pick(Object.keys(db));
     };
 
     self.next = function (cur) {
@@ -172,14 +182,18 @@ module.exports = function (order) {
     };
 
     self.fill = function (cur, limit) {
+        var dbcur = db[cur];
+        console.log('cur: ' + cur);
+        console.log('dbcur: ' + JSON.stringify(dbcur, null, 2));
         var res = [ deck.pick(db[cur].words) ];
         if (!res[0]) return [];
-        if (limit && res.length >= limit) return res;;
+        if (limit && res.length >= limit) return res;
 
         var pcur = cur;
         var ncur = cur;
 
         while (pcur || ncur) {
+            console.log('res: ' + JSON.stringify(res));
             if (pcur) {
                 var prev = self.prev(pcur);
                 pcur = null;
@@ -195,7 +209,7 @@ module.exports = function (order) {
                 ncur = null;
                 if (next) {
                     ncur = next.key;
-                    res.unshift(next.word);
+                    res.push(next.word);
                     if (limit && res.length >= limit) break;
                 }
             }
@@ -203,9 +217,6 @@ module.exports = function (order) {
 
         return res;
     };
-
-    var reEndOfSentence = new RegExp('[\.\!\?]$');
-    var rePunctuation = new RegExp('[-,;:]$');
 
     self.respond = function (text, limit) {
         var cur = self.search(text) || self.pick();
@@ -245,7 +256,9 @@ module.exports = function (order) {
 function clean (s) {
     return s
         .toLowerCase()
-        .replace(/[^a-z\d]+/g, '_')
+        .replace(reEndOfSentence, '')
+        .replace(rePunctuation, '')
+        .replace(/[^a-z\d']+/g, ' ')
         .replace(/^_/, '')
         .replace(/_$/, '')
     ;

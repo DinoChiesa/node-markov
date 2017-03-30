@@ -1,10 +1,10 @@
 {
     "name" : "markov",
     "description" : "Silly markov chatbot module",
-    "version" : "0.0.7",
+    "version" : "0.0.8",
     "repository" : {
         "type" : "git",
-        "url" : "git://github.com/substack/node-markov.git"
+        "url" : "git://github.com/DinoChiesa/node-markov.git"
     },
     "main" : "./index.js",
     "directories" : {
@@ -15,11 +15,10 @@
         "test": "tape test/*.js"
     },
     "engines" : {
-        "node" : ">=0.4.0"
+        "node" : ">=4.0.0"
     },
     "dependencies" : {
         "deck" : ">=0.0.3",
-        "lazy" : ">=1.0.3",
         "hashish" : ">=0.0.2"
     },
     "devDependencies" : {
